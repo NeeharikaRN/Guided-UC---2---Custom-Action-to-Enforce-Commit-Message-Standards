@@ -52,3 +52,4 @@ jobs:
             exit 1
           else
             echo "✅ All commit messages follow Conventional Commit format."
+          fi

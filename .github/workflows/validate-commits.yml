@@ -1,37 +1,54 @@
-name: "Validate Commit Messages"
+name: "Commit Message Lint"
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
-  validate-commits:
+  lint-commits:
+    name: "Validate Commit Messages"
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      # Checkout PR branch
+      - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Important to fetch full history
 
+      # Fetch main branch to compare commits
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      # Validate commit messages
       - name: Validate commit messages
         run: |
           echo "🔍 Fetching PR commits..."
-          commits=$(git log origin/${{ github.event.pull_request.base.ref }}..HEAD --pretty=format:"%s")
-
+          
+          # Get all commits on the PR branch that are not in base branch
+          commits=$(git log origin/${{ github.event.pull_request.base.ref }}..HEAD --pretty=format:"%s" --no-merges)
+          
+          # Regex for Conventional Commits
           regex="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([a-z0-9\-]+\))?: .+"
 
           invalid_commits=""
 
           while IFS= read -r commit; do
+            # Skip empty commits just in case
+            if [[ -z "$commit" ]]; then
+              continue
+            fi
+
+            # Check if commit matches regex
             if ! [[ $commit =~ $regex ]]; then
               invalid_commits+="$commit\n"
             fi
           done <<< "$commits"
 
           if [ -n "$invalid_commits" ]; then
-            echo "❌ The following commit(s) do not follow Conventional Commit format:"
+            echo "❌ The following commit(s) do NOT follow Conventional Commit format:"
             echo -e "$invalid_commits"
             exit 1
           else
             echo "✅ All commit messages follow Conventional Commit format."
-          fi
